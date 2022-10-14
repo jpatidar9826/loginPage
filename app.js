@@ -1,79 +1,92 @@
+require('dotenv').config();
+const express = require("express");
+const bodyParser = require("body-parser");
+const ejs = require("ejs");
+const mongoose = require("mongoose");
+const bcrypt = require("bcrypt");
+const saltRounds = 10;
 
- require('dotenv').config();
- const express = require("express");
- const bodyParser = require("body-parser");
- const ejs = require("ejs");
- const mongoose = require("mongoose");
- const md5 = require("md5");
+const app = express();
 
- const app = express();
+app.set('view engine', 'ejs');
 
- app.set('view engine','ejs');
+app.use(express.static("public"));
 
- app.use(express.static("public"));
+app.use(bodyParser.urlencoded({
+  extended: true
+}));
 
- app.use(bodyParser.urlencoded({extended: true}));
+mongoose.connect("mongodb://localhost:27017/userDB", {
+  useNewUrlParser: true
+});
 
- mongoose.connect("mongodb://localhost:27017/userDB",{useNewUrlParser: true});
-
- const userSchema = new mongoose.Schema({
-   email: String,
-   password: String
- });
+const userSchema = new mongoose.Schema({
+  email: String,
+  password: String
+});
 
 
 
 
- const User = new mongoose.model("User",userSchema);
+const User = new mongoose.model("User", userSchema);
 
- app.get("/",function(req,res){
-   res.render("home");
- });
+app.get("/", function(req, res) {
+  res.render("home");
+});
 
- app.get("/login",function(req,res){
-   res.render("login");
- });
+app.get("/login", function(req, res) {
+  res.render("login");
+});
 
- app.get("/register",function(req,res){
-   res.render("register");
- });
+app.get("/register", function(req, res) {
+  res.render("register");
+});
 
- app.post("/login",function(req,res){
+app.post("/login", function(req, res) {
 
-   const userName = req.body.username;
-   const userPass = md5(req.body.password);
+  const userName = req.body.username;
+  const userPass = req.body.password;
 
-   User.findOne({email: userName},function(err,result){
-     if (err) {
-       console.log(err);
-     }else{
-       if (result) {
-         if (result.password === userPass) {
-           res.render("secrets");
-         }
-       }
+  User.findOne({
+    email: userName
+  }, function(err, foundUser) {
+    if (err) {
+      console.log(err);
+    } else {
+      if (foundUser) {
+        bcrypt.compare(userPass, foundUser.password, function(err, result) {
+          if (result === true) {
+            res.render("secrets");
+          }
+        });
+      }
+    }
 
-     }
-   });
- });
 
- app.post("/register",function(req,res){
+  });
+});
 
-   const newUser = new User({
-     email: req.body.username,
-     password: md5(req.body.password)
-   });
+app.post("/register", function(req, res) {
 
-   newUser.save(function(err){
-     if (err) {
-       console.log(err);
-     }else{
-       res.render("secrets");
-     }
-   });
+  bcrypt.hash(req.body.password, saltRounds, function(err, hash) {
+    const newUser = new User({
+      email: req.body.username,
+      password: hash
+    });
 
- });
+    newUser.save(function(err) {
+      if (err) {
+        console.log(err);
+      } else {
+        res.render("secrets");
+      }
+    });
+  });
 
- app.listen(3000,function(){
-   console.log("started at 3000");
- })
+
+
+});
+
+app.listen(3000, function() {
+  console.log("started at 3000");
+})
